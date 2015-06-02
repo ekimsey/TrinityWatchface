@@ -61,7 +61,7 @@ static void main_window_load(Window *window)
   text_layer_set_text_alignment(s_time_layer, GTextAlignmentCenter);
   
   s_white_trinity_bitmap = gbitmap_create_with_resource(RESOURCE_ID_TRINITY_WHITE);
-  s_white_trinity_layer = bitmap_layer_create(GRect(0, 62, 144, 106));
+  s_white_trinity_layer = bitmap_layer_create(GRect(0, 56, 144, 106));
   bitmap_layer_set_bitmap(s_white_trinity_layer, s_white_trinity_bitmap);
   bitmap_layer_set_alignment(s_white_trinity_layer, GAlignCenter);
 

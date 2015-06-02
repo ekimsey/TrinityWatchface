@@ -10,7 +10,6 @@
         "media": [
             {
                 "file": "images/Pebble Trinity White.png",
-                "menuIcon": true,
                 "name": "TRINITY_WHITE",
                 "type": "png"
             }
