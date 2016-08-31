@@ -4,12 +4,19 @@
     "keywords": [],
     "name": "trinity",
     "pebble": {
-        "displayName": "Trinity Watchface",
+        "displayName": "Trinity",
         "enableMultiJS": true,
         "messageKeys": [],
         "projectType": "native",
         "resources": {
             "media": [
+                {
+                    "file": "images/Trinity_AppGlance.png",
+                    "name": "APP_GLANCE",
+                    "storageFormat": "png",
+                    "targetPlatforms": null,
+                    "type": "bitmap"
+                },
                 {
                     "file": "images/Trinity_white.png",
                     "name": "TRINITY_WHITE",
