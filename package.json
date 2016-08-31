@@ -1,0 +1,35 @@
+{
+    "author": "Ginger Theology",
+    "dependencies": {},
+    "keywords": [],
+    "name": "trinity",
+    "pebble": {
+        "displayName": "Trinity Watchface",
+        "enableMultiJS": true,
+        "messageKeys": [],
+        "projectType": "native",
+        "resources": {
+            "media": [
+                {
+                    "file": "images/Trinity_white.png",
+                    "name": "TRINITY_WHITE",
+                    "storageFormat": "png",
+                    "targetPlatforms": null,
+                    "type": "bitmap"
+                }
+            ]
+        },
+        "sdkVersion": "3",
+        "targetPlatforms": [
+            "aplite",
+            "basalt",
+            "chalk",
+            "diorite"
+        ],
+        "uuid": "638dc3cf-041c-4520-a439-b1eb1dd51729",
+        "watchapp": {
+            "watchface": true
+        }
+    },
+    "version": "1.0.0"
+}
