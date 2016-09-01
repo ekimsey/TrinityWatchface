@@ -1,15 +1,31 @@
 {
     "author": "Ginger Theology",
-    "dependencies": {},
+    "dependencies": {
+        "pebble-clay": "^1.0.2"
+    },
     "keywords": [],
     "name": "trinity",
     "pebble": {
+        "capabilities": [
+            "configurable"
+        ],
         "displayName": "Trinity",
         "enableMultiJS": true,
-        "messageKeys": [],
+        "messageKeys": [
+            "BackgroundColor",
+            "ImageColor",
+            "TextColor"
+        ],
         "projectType": "native",
         "resources": {
             "media": [
+                {
+                    "file": "images/Trinity_black.png",
+                    "name": "TRINITY_BLACK",
+                    "storageFormat": "png",
+                    "targetPlatforms": null,
+                    "type": "bitmap"
+                },
                 {
                     "file": "images/Trinity_AppGlance.png",
                     "name": "APP_GLANCE",

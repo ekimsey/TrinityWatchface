@@ -1,4 +1,5 @@
 #include <pebble.h>
+#include "main.h"
 
 static Window *s_main_window;
 static Layer *window_layer, *s_battery_layer;
@@ -6,12 +7,13 @@ static BitmapLayer *s_bitmap_layer;
 static TextLayer *s_date_layer, *s_time_layer;
 static char s_date_buffer[10];
 static int s_battery_level;
-/* Image size: 140 * 136 */
+// Image size: 140 x 136
 static GBitmap *s_bitmap;
+ClaySettings settings;
 
 static void update_time() {
   // Get a tm structure
-  time_t temp = time(NULL); 
+  time_t temp = time(NULL);
   struct tm *tick_time = localtime(&temp);
 
   // Create long-lived buffers for date and time
@@ -42,10 +44,15 @@ static void battery_callback(BatteryChargeState state) {
 }
 
 static void battery_update_proc(Layer *layer, GContext *ctx) {
-  GRect bounds = layer_get_bounds(layer);
-
-  // Find the width of the bar
-  int width = (int)(float)(((float)s_battery_level / 100.0F) *  bounds.size.w);
+  GRect bg_bar_bounds = layer_get_bounds(layer);
+  GRect fg_bar_bounds = GRect(bg_bar_bounds.origin.x, bg_bar_bounds.origin.y, 
+                              bg_bar_bounds.size.w, bg_bar_bounds.size.h);
+  
+  // Find the width of the foreground bar
+  fg_bar_bounds.size.w = (int)(float)(((float)s_battery_level / 100.0F) * bg_bar_bounds.size.w);
+  
+  // Center foreground bar
+  fg_bar_bounds.origin.x += (bg_bar_bounds.size.w - fg_bar_bounds.size.w) / 2;
 
   // Draw the background of battery bar
   if(s_battery_level <= 10) {
@@ -61,15 +68,61 @@ static void battery_update_proc(Layer *layer, GContext *ctx) {
       graphics_context_set_fill_color(ctx, GColorBlack);
     #endif
   }
-  graphics_fill_rect(ctx, bounds, 0, GCornerNone);
 
   // Draw the bar
-  graphics_context_set_fill_color(ctx, GColorWhite);
-  graphics_fill_rect(ctx, GRect(0, 0, width, bounds.size.h), 0, GCornerNone);
+  #if defined(PBL_COLOR)
+    graphics_fill_rect(ctx, bg_bar_bounds, 0, GCornerNone);
+  #endif
+  graphics_context_set_fill_color(ctx, settings.TextColor);
+  graphics_fill_rect(ctx, fg_bar_bounds, 0, GCornerNone);
 }
 
 static void tick_handler(struct tm *tick_time, TimeUnits units_changed) {
   update_time();
+}
+
+static void config_handler(DictionaryIterator *iter, void *context) {
+  // Read color preferences
+  Tuple *bg_color_t = dict_find(iter, MESSAGE_KEY_BackgroundColor);
+  if(bg_color_t) {
+    settings.BackgroundColor = GColorFromHEX(bg_color_t->value->int32);
+  }
+
+  Tuple *txt_color_t = dict_find(iter, MESSAGE_KEY_TextColor);
+  if(txt_color_t) {
+    settings.TextColor = GColorFromHEX(txt_color_t->value->int32);
+  }
+
+  Tuple *trinity_color_t = dict_find(iter, MESSAGE_KEY_ImageColor);
+  if(trinity_color_t) {
+    settings.ImageColor = trinity_color_t->value->cstring[0];
+  }
+  // Use new setings
+  window_set_background_color(s_main_window, settings.BackgroundColor);
+  text_layer_set_text_color(s_date_layer, settings.TextColor);
+  text_layer_set_text_color(s_time_layer, settings.TextColor);
+  layer_mark_dirty(s_battery_layer);
+  if(settings.ImageColor == 'w') {
+    s_bitmap = gbitmap_create_with_resource(RESOURCE_ID_TRINITY_WHITE);
+  } else {
+    s_bitmap = gbitmap_create_with_resource(RESOURCE_ID_TRINITY_BLACK);
+  }
+  bitmap_layer_set_bitmap(s_bitmap_layer, s_bitmap);
+}
+
+// Initialize the default settings
+static void default_settings() {
+  settings.BackgroundColor = GColorDukeBlue;
+  settings.TextColor = GColorWhite;
+  settings.ImageColor = 'w';
+}
+
+// Read settings from persistent storage
+static void load_settings() {
+  // Load the default settings
+  default_settings();
+  // Read settings from persistent storage, if they exist
+  //persist_read_data(SETTINGS_KEY, &settings, sizeof(settings));
 }
 
 static void main_window_load(Window *window) {
@@ -77,12 +130,26 @@ static void main_window_load(Window *window) {
   window_layer = window_get_root_layer(window);
   GRect window_bounds = layer_get_bounds(window_layer);
   
+  // Set main Window color
+  #if defined(PBL_COLOR)
+    window_set_background_color(window, settings.BackgroundColor);
+  #else
+    window_set_background_color(window, GColorBlack);
+  #endif
+  
+  // Create the object of trinity file
+  if(settings.ImageColor == 'w') {
+    s_bitmap = gbitmap_create_with_resource(RESOURCE_ID_TRINITY_WHITE);
+  } else {
+    s_bitmap = gbitmap_create_with_resource(RESOURCE_ID_TRINITY_BLACK);
+  }
+  
   // Create date Layer
   GRect date_layer_bounds = window_bounds;
   date_layer_bounds.size.h /= 8;
   s_date_layer = text_layer_create(date_layer_bounds);
   text_layer_set_background_color(s_date_layer, GColorClear);
-  text_layer_set_text_color(s_date_layer, GColorWhite);
+  text_layer_set_text_color(s_date_layer, settings.TextColor);
   text_layer_set_font(s_date_layer, fonts_get_system_font(FONT_KEY_GOTHIC_18_BOLD));
   text_layer_set_text_alignment(s_date_layer, GTextAlignmentCenter);
 
@@ -92,7 +159,7 @@ static void main_window_load(Window *window) {
   time_layer_bounds.origin.y = (window_bounds.size.h / 8);
   s_time_layer = text_layer_create(time_layer_bounds);
   text_layer_set_background_color(s_time_layer, GColorClear);
-  text_layer_set_text_color(s_time_layer, GColorWhite);
+  text_layer_set_text_color(s_time_layer, settings.TextColor);
   text_layer_set_font(s_time_layer, fonts_get_system_font(FONT_KEY_BITHAM_30_BLACK));
   text_layer_set_text_alignment(s_time_layer, GTextAlignmentCenter);
   
@@ -130,23 +197,20 @@ static void main_window_unload(Window *window) {
   text_layer_destroy(s_date_layer);
   text_layer_destroy(s_time_layer);
   layer_destroy(s_battery_layer);
-  gbitmap_destroy(s_bitmap);
   bitmap_layer_destroy(s_bitmap_layer);
+  gbitmap_destroy(s_bitmap);
 }
 
 static void init() {
+  // Obtain configuration settings
+  load_settings();
+  
+  // Listen for AppMessages
+  app_message_register_inbox_received(config_handler);
+  app_message_open(128, 128);
+  
   // Create main Window element and assign to pointer
   s_main_window = window_create();
-  
-  // Set main Window color
-  #if defined(PBL_COLOR)
-    window_set_background_color(s_main_window, GColorOxfordBlue);
-  #elif defined(PBL_BW)
-    window_set_background_color(s_main_window, GColorBlack);
-  #endif
-  
-  // Create the object of trinity file
-  s_bitmap = gbitmap_create_with_resource(RESOURCE_ID_TRINITY_WHITE);
 
   // Set handlers to manage the elements inside the Window
   window_set_window_handlers(s_main_window, (WindowHandlers)
