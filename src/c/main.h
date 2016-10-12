@@ -7,7 +7,11 @@
 typedef struct ClaySettings {
   GColor BackgroundColor;
   GColor TextColor;
-  char ImageColor;
+  GColor BattFGColor;
+  GColor BattBGColor;
+  GColor P20BattColor;
+  GColor P10BattColor;
+  char* ImageColor;
 } __attribute__((__packed__)) ClaySettings;
 
 static void update_time();
@@ -15,7 +19,6 @@ static void battery_callback(BatteryChargeState state);
 static void battery_update_proc(Layer *layer, GContext *ctx);
 static void tick_handler(struct tm *tick_time, TimeUnits units_changed);
 static void config_handler(DictionaryIterator *iter, void *context);
-static void default_settings();
 static void load_settings();
 static void main_window_load(Window *window);
 static void main_window_unload(Window *window);

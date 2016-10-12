@@ -1,4 +1,5 @@
 #include <pebble.h>
+#include <string.h>
 #include "main.h"
 
 static Window *s_main_window;
@@ -18,6 +19,7 @@ static void update_time() {
 
   // Create long-lived buffers for date and time
   static char time_buffer[] = "00:00";
+  s_date_buffer[0] = '\0';
 
   // Write the current hours and minutes into the buffer
   if(clock_is_24h_style() == true)
@@ -56,24 +58,16 @@ static void battery_update_proc(Layer *layer, GContext *ctx) {
 
   // Draw the background of battery bar
   if(s_battery_level <= 10) {
-    #if defined(PBL_COLOR)
-      graphics_context_set_fill_color(ctx, GColorRed);
-    #else
-      graphics_context_set_fill_color(ctx, GColorBlack);
-    #endif
+    graphics_context_set_fill_color(ctx, settings.P10BattColor);
   } else if(s_battery_level <= 20) {
-    #if defined(PBL_COLOR)
-      graphics_context_set_fill_color(ctx, GColorOrange);
-    #else
-      graphics_context_set_fill_color(ctx, GColorBlack);
-    #endif
+    graphics_context_set_fill_color(ctx, settings.P20BattColor);
+  } else {
+    graphics_context_set_fill_color(ctx, settings.BattBGColor);
   }
 
   // Draw the bar
-  #if defined(PBL_COLOR)
-    graphics_fill_rect(ctx, bg_bar_bounds, 0, GCornerNone);
-  #endif
-  graphics_context_set_fill_color(ctx, settings.TextColor);
+  graphics_fill_rect(ctx, bg_bar_bounds, 0, GCornerNone);
+  graphics_context_set_fill_color(ctx, settings.BattFGColor);
   graphics_fill_rect(ctx, fg_bar_bounds, 0, GCornerNone);
 }
 
@@ -82,47 +76,95 @@ static void tick_handler(struct tm *tick_time, TimeUnits units_changed) {
 }
 
 static void config_handler(DictionaryIterator *iter, void *context) {
-  // Read color preferences
+  // Read and set new color preferences and write them to persistent storage
+  // Background color settting
   Tuple *bg_color_t = dict_find(iter, MESSAGE_KEY_BackgroundColor);
   if(bg_color_t) {
+    persist_write_int(MESSAGE_KEY_BackgroundColor, bg_color_t->value->int32);
     settings.BackgroundColor = GColorFromHEX(bg_color_t->value->int32);
+    window_set_background_color(s_main_window, settings.BackgroundColor);
   }
 
+  // Text color setting
   Tuple *txt_color_t = dict_find(iter, MESSAGE_KEY_TextColor);
   if(txt_color_t) {
+    persist_write_int(MESSAGE_KEY_TextColor, txt_color_t->value->int32);
     settings.TextColor = GColorFromHEX(txt_color_t->value->int32);
+    text_layer_set_text_color(s_date_layer, settings.TextColor);
+    text_layer_set_text_color(s_time_layer, settings.TextColor);
+  }
+  
+  // Battery FG color setting
+  Tuple *batt_fg_color_t = dict_find(iter, MESSAGE_KEY_BattFGColor);
+  if(batt_fg_color_t) {
+    persist_write_int(MESSAGE_KEY_BattFGColor, batt_fg_color_t->value->int32);
+    settings.BattFGColor = GColorFromHEX(batt_fg_color_t->value->int32);
+    layer_mark_dirty(s_battery_layer);
+  }
+  
+  // Battery BG color setting
+  Tuple *batt_bg_color_t = dict_find(iter, MESSAGE_KEY_BattBGColor);
+  if(batt_bg_color_t) {
+    persist_write_int(MESSAGE_KEY_BattBGColor, batt_bg_color_t->value->int32);
+    settings.BattBGColor = GColorFromHEX(batt_bg_color_t->value->int32);
+    layer_mark_dirty(s_battery_layer);
+  }
+  
+  // Battery 20% color setting
+  Tuple *p20batt_bg_color_t = dict_find(iter, MESSAGE_KEY_P20BattColor);
+  if(p20batt_bg_color_t) {
+    persist_write_int(MESSAGE_KEY_P20BattColor, p20batt_bg_color_t->value->int32);
+    settings.P20BattColor = GColorFromHEX(p20batt_bg_color_t->value->int32);
+    layer_mark_dirty(s_battery_layer);
+  }
+  
+  // Battery 10% color setting
+  Tuple *p10batt_bg_color_t = dict_find(iter, MESSAGE_KEY_P10BattColor);
+  if(p10batt_bg_color_t) {
+    persist_write_int(MESSAGE_KEY_P10BattColor, p10batt_bg_color_t->value->int32);
+    settings.P10BattColor = GColorFromHEX(p10batt_bg_color_t->value->int32);
+    layer_mark_dirty(s_battery_layer);
   }
 
+  // Image color setting
   Tuple *trinity_color_t = dict_find(iter, MESSAGE_KEY_ImageColor);
   if(trinity_color_t) {
-    settings.ImageColor = trinity_color_t->value->cstring[0];
+    persist_write_string(MESSAGE_KEY_ImageColor, trinity_color_t->value->cstring);
+    settings.ImageColor = trinity_color_t->value->cstring;
+    if(settings.ImageColor[0] == 'w') {
+      s_bitmap = gbitmap_create_with_resource(RESOURCE_ID_TRINITY_WHITE);
+    } else {
+      s_bitmap = gbitmap_create_with_resource(RESOURCE_ID_TRINITY_BLACK);
+    }
+    bitmap_layer_set_bitmap(s_bitmap_layer, s_bitmap);
   }
-  // Use new setings
-  window_set_background_color(s_main_window, settings.BackgroundColor);
-  text_layer_set_text_color(s_date_layer, settings.TextColor);
-  text_layer_set_text_color(s_time_layer, settings.TextColor);
-  layer_mark_dirty(s_battery_layer);
-  if(settings.ImageColor == 'w') {
-    s_bitmap = gbitmap_create_with_resource(RESOURCE_ID_TRINITY_WHITE);
-  } else {
-    s_bitmap = gbitmap_create_with_resource(RESOURCE_ID_TRINITY_BLACK);
-  }
-  bitmap_layer_set_bitmap(s_bitmap_layer, s_bitmap);
-}
-
-// Initialize the default settings
-static void default_settings() {
-  settings.BackgroundColor = GColorDukeBlue;
-  settings.TextColor = GColorWhite;
-  settings.ImageColor = 'w';
 }
 
 // Read settings from persistent storage
 static void load_settings() {
   // Load the default settings
-  default_settings();
+  //default_settings();
   // Read settings from persistent storage, if they exist
-  //persist_read_data(SETTINGS_KEY, &settings, sizeof(settings));
+  #if defined(PBL_COLOR)
+    settings.BackgroundColor = persist_exists(MESSAGE_KEY_BackgroundColor)? GColorFromHEX(persist_read_int(MESSAGE_KEY_BackgroundColor)) : GColorDukeBlue;
+    settings.P20BattColor = persist_exists(MESSAGE_KEY_P20BattColor)? GColorFromHEX(persist_read_int(MESSAGE_KEY_P20BattColor)) : GColorOrange;
+    settings.P10BattColor = persist_exists(MESSAGE_KEY_P10BattColor)? GColorFromHEX(persist_read_int(MESSAGE_KEY_P10BattColor)) : GColorRed;
+  #else
+    settings.BackgroundColor = persist_exists(MESSAGE_KEY_BackgroundColor)? GColorFromHEX(persist_read_int(MESSAGE_KEY_BackgroundColor)) : GColorBlack;
+    settings.P20BattColor = persist_exists(MESSAGE_KEY_P20BattColor)? GColorFromHEX(persist_read_int(MESSAGE_KEY_P20BattColor)) : GColorLightGray;
+    settings.P10BattColor = persist_exists(MESSAGE_KEY_P10BattColor)? GColorFromHEX(persist_read_int(MESSAGE_KEY_P10BattColor)) : GColorLightGray;
+  #endif
+  settings.TextColor = persist_exists(MESSAGE_KEY_TextColor)? GColorFromHEX(persist_read_int(MESSAGE_KEY_TextColor)) : GColorWhite;
+  settings.BattFGColor = persist_exists(MESSAGE_KEY_BattFGColor)? GColorFromHEX(persist_read_int(MESSAGE_KEY_BattFGColor)) : GColorWhite;
+  settings.BattBGColor = persist_exists(MESSAGE_KEY_BattBGColor)? GColorFromHEX(persist_read_int(MESSAGE_KEY_BattBGColor)) : GColorBlack;
+  
+  char* buff = "\0";
+  if(persist_exists(MESSAGE_KEY_ImageColor)) {
+    persist_read_string(MESSAGE_KEY_ImageColor, buff, (size_t)2);
+    settings.ImageColor = buff;
+  } else {
+    settings.ImageColor = "w\0";
+  }
 }
 
 static void main_window_load(Window *window) {
@@ -131,14 +173,10 @@ static void main_window_load(Window *window) {
   GRect window_bounds = layer_get_bounds(window_layer);
   
   // Set main Window color
-  #if defined(PBL_COLOR)
-    window_set_background_color(window, settings.BackgroundColor);
-  #else
-    window_set_background_color(window, GColorBlack);
-  #endif
+  window_set_background_color(window, settings.BackgroundColor);
   
   // Create the object of trinity file
-  if(settings.ImageColor == 'w') {
+  if(settings.ImageColor[0] == 'w') {
     s_bitmap = gbitmap_create_with_resource(RESOURCE_ID_TRINITY_WHITE);
   } else {
     s_bitmap = gbitmap_create_with_resource(RESOURCE_ID_TRINITY_BLACK);
@@ -201,6 +239,10 @@ static void main_window_unload(Window *window) {
   gbitmap_destroy(s_bitmap);
 }
 
+/*
+  Load old settings, set up app messages, set window handlers, 
+  set tick handler, set battery service callback, 
+*/
 static void init() {
   // Obtain configuration settings
   load_settings();
@@ -219,8 +261,6 @@ static void init() {
       .unload = main_window_unload
     }
   );
-
-  s_date_buffer[0] = '\0';
   
   // Register with TickTimerService
   tick_timer_service_subscribe(MINUTE_UNIT, tick_handler);
